@@ -3,7 +3,7 @@
 """
 抓取各游戏官方账号（B站/微博/小红书）的最新动态，生成 data.json 供 index.html 展示。
 只依赖 Python 标准库，可直接在 GitHub Actions 运行。
-数据来源：RSSHub（rsshub.app 或你自建的实例）。
+数据来源：RSSHub（rsshub.app 或你自建的实例https://rsshub.rssforever.com）。
 """
 import json, re, os, sys, html, time, urllib.request
 import xml.etree.ElementTree as ET
@@ -109,7 +109,7 @@ def ai_summarize(text, cfg):
 
 def main():
     cfg = json.load(open('games.json', encoding='utf-8'))
-    rsshub = cfg.get('rsshub', 'https://rsshub.app').rstrip('/')
+    rsshub = cfg.get('rsshub', 'https://rsshub.rssforever.com').rstrip('/')
     per_src = cfg.get('fetch', {}).get('items_per_source', 10)
     ex_chars = cfg.get('fetch', {}).get('excerpt_chars', 300)
     ai_cfg = cfg.get('ai', {})
