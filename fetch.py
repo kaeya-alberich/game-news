@@ -3,30 +3,77 @@
 """
 抓取各游戏官方账号（B站/微博/小红书）的最新动态，生成 data.json 供 index.html 展示。
 只依赖 Python 标准库，可直接在 GitHub Actions 运行。
-数据来源：RSSHub（rsshub.app 或你自建的实例https://rsshub.rssforever.com）。
+
+B站：直接调用官方 API（WBI 签名），不经过 RSSHub，稳定且不受公共实例限制。
+微博/小红书：走 RSSHub（公共实例或你在 games.json 里填的自建实例地址）。
 """
-import json, re, os, sys, html, time, urllib.request
+import json, re, os, sys, html, time, hashlib, urllib.parse, urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
 from email.utils import parsedate_to_datetime
 
 CN_TZ = timezone(timedelta(hours=8))
-UA = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-    'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-    'Connection': 'keep-alive'
-}
+UA = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+      '(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36')
+HEADERS = {'User-Agent': UA, 'Referer': 'https://www.bilibili.com'}
+
+# B站 WBI 签名用的混淆表
+MIXIN_KEY_ENC_TAB = [46,47,18,2,53,8,23,32,15,50,10,31,58,3,45,35,27,43,5,49,33,9,42,19,29,28,
+                     14,39,12,38,41,13,37,48,7,16,24,55,40,61,26,17,0,1,60,51,30,4,22,25,54,21,
+                     56,59,6,63,57,62,11,36,20,34,44,52]
+_mixin_key = None
 
 
 def log(msg):
     print(f"[{datetime.now(CN_TZ):%H:%M:%S}] {msg}", flush=True)
 
 
-def fetch_url(url, timeout=25):
-    req = urllib.request.Request(url, headers=UA)
+def http_get(url, timeout=25, headers=None):
+    req = urllib.request.Request(url, headers=headers or HEADERS)
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
+
+
+def get_mixin_key():
+    """从 B站 nav 接口获取 WBI 混淆密钥（每次运行只取一次）"""
+    global _mixin_key
+    if _mixin_key:
+        return _mixin_key
+    nav = json.loads(http_get('https://api.bilibili.com/x/web-interface/nav'))
+    img = nav['data']['wbi_img']['img_url'].rsplit('/', 1)[-1].split('.')[0]
+    sub = nav['data']['wbi_img']['sub_url'].rsplit('/', 1)[-1].split('.')[0]
+    raw = img + sub
+    _mixin_key = ''.join(raw[i] for i in MIXIN_KEY_ENC_TAB)[:32]
+    return _mixin_key
+
+
+def wbi_sign(params):
+    params = dict(params)
+    params['wts'] = int(time.time())
+    params = {k: ''.join(c for c in str(v) if c not in "!'()*") for k, v in params.items()}
+    query = urllib.parse.urlencode(sorted(params.items()))
+    w_rid = hashlib.md5((query + get_mixin_key()).encode()).hexdigest()
+    return f"{query}&w_rid={w_rid}"
+
+
+def fetch_bilibili_direct(uid, limit):
+    """直接调 B站官方 API 获取 UP 主最近视频"""
+    api = 'https://api.bilibili.com/x/space/wbi/arc/search'
+    params = {'mid': uid, 'ps': min(limit * 2, 30), 'pn': 1, 'order': 'pubdate',
+              'platform': 'web', 'dm_img_list': '[]', 'dm_img_str': 'no webgl',
+              'dm_cover_img_str': 'no webgl', 'dm_img_inter': '{"ds":[],"wh":[0,0,0],"of":[0,0,0]}'}
+    data = json.loads(http_get(f"{api}?{wbi_sign(params)}"))
+    if data.get('code') != 0:
+        raise RuntimeError(f"B站 API 返回 code={data.get('code')}: {data.get('message')}")
+    out = []
+    for v in data['data']['list']['vlist'][:limit]:
+        out.append({
+            'title': v.get('title', ''),
+            'link': f"https://www.bilibili.com/video/{v.get('bvid', '')}",
+            'date': datetime.fromtimestamp(v.get('created', 0), CN_TZ).isoformat(),
+            'raw': v.get('description', '') or '',
+        })
+    return out
 
 
 def localname(tag):
@@ -40,7 +87,7 @@ def strip_html(s):
 
 
 def parse_feed(content):
-    """解析 RSS 2.0 / Atom，返回 [{title, link, date, raw_text}]"""
+    """解析 RSS 2.0 / Atom，返回 [{title, link, date, raw}]"""
     root = ET.fromstring(content)
     items = []
     channel = root if localname(root.tag) == 'channel' else root
@@ -92,7 +139,6 @@ def excerpt(text, n):
 
 
 def ai_summarize(text, cfg):
-    """可选：调用兼容 OpenAI 接口的模型生成摘要。失败时返回 None。"""
     key = os.environ.get(cfg.get('api_key_env', 'AI_API_KEY'), '')
     if not cfg.get('enabled') or not key:
         return None
@@ -105,7 +151,7 @@ def ai_summarize(text, cfg):
         'max_tokens': 200, 'temperature': 0.3,
     }).encode()
     req = urllib.request.Request(cfg['base_url'].rstrip('/') + '/chat/completions',
-                                 data=body, headers={**UA, 'Content-Type': 'application/json',
+                                 data=body, headers={'User-Agent': UA, 'Content-Type': 'application/json',
                                                      'Authorization': f'Bearer {key}'})
     with urllib.request.urlopen(req, timeout=60) as r:
         data = json.loads(r.read())
@@ -114,30 +160,39 @@ def ai_summarize(text, cfg):
 
 def main():
     cfg = json.load(open('games.json', encoding='utf-8'))
-    rsshub = cfg.get('rsshub', 'https://rsshub.rssforever.com').rstrip('/')
+    rsshub = cfg.get('rsshub', 'https://rsshub.app').rstrip('/')
     per_src = cfg.get('fetch', {}).get('items_per_source', 10)
     ex_chars = cfg.get('fetch', {}).get('excerpt_chars', 300)
     ai_cfg = cfg.get('ai', {})
-    ai_budget = 30  # 每次运行最多 AI 摘要 30 条，控制成本
+    ai_budget = 30
 
     items, errors = [], []
     for g in cfg['games']:
-        feeds = []
+        feeds = []  # (来源名, 抓取函数)
         if g.get('bilibili', {}).get('uid'):
-            feeds.append(('B站', f"{rsshub}/bilibili/user/video/{g['bilibili']['uid']}"))
+            feeds.append(('B站', 'bili'))
         if g.get('weibo', {}).get('uid'):
             feeds.append(('微博', f"{rsshub}/weibo/user/{g['weibo']['uid']}"))
         if g.get('xiaohongshu', {}).get('user_id'):
             feeds.append(('小红书', f"{rsshub}/xiaohongshu/user/{g['xiaohongshu']['user_id']}/notes"))
-        for src, url in feeds:
+
+        for src, kind in feeds:
             try:
-                entries = parse_feed(fetch_url(url))[:per_src]
+                if kind == 'bili':
+                    try:
+                        entries = fetch_bilibili_direct(g['bilibili']['uid'], per_src)
+                    except Exception as ex1:
+                        log(f"{g['name']} / B站直连失败（{ex1}），改用 RSSHub…")
+                        entries = parse_feed(http_get(f"{rsshub}/bilibili/user/video/{g['bilibili']['uid']}"))[:per_src]
+                else:
+                    entries = parse_feed(http_get(kind))[:per_src]
                 log(f"{g['name']} / {src}: {len(entries)} 条")
                 for e in entries:
                     summary = None
                     if ai_budget > 0 and ai_cfg.get('enabled') and len(e['raw']) > 120:
                         summary = ai_summarize(e['raw'][:1200], ai_cfg)
-                        ai_budget -= 1 if summary else 0
+                        if summary:
+                            ai_budget -= 1
                         time.sleep(1)
                     items.append({
                         'game': g['id'], 'game_name': g['name'], 'color': g.get('color', '#888'),
@@ -148,9 +203,8 @@ def main():
             except Exception as ex:
                 errors.append(f"{g['name']}/{src}: {ex}")
                 log(f"⚠ {g['name']} / {src} 抓取失败：{ex}")
-            time.sleep(1.5)  # 礼貌限速
+            time.sleep(1.5)
 
-    # 活动事件（来自 games.json 手动维护）
     events = []
     for g in cfg['games']:
         for ev in g.get('events', []):
