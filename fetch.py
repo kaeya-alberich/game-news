@@ -28,10 +28,29 @@ def log(msg):
     print(f"[{datetime.now(CN_TZ):%H:%M:%S}] {msg}", flush=True)
 
 
+_cookies = {}
+
+
 def http_get(url, timeout=25, headers=None):
-    req = urllib.request.Request(url, headers=headers or HEADERS)
+    h = dict(headers or HEADERS)
+    if 'bilibili.com' in url and _cookies:
+        h['Cookie'] = '; '.join(f'{k}={v}' for k, v in _cookies.items())
+    req = urllib.request.Request(url, headers=h)
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
+
+
+def refresh_bili_cookie():
+    """获取 buvid3/buvid4 匿名 cookie，绕开 B站 对机房 IP 的匿名请求拦截"""
+    try:
+        spi = json.loads(http_get('https://api.bilibili.com/x/frontend/finger/spi',
+                                  headers={'User-Agent': UA, 'Referer': 'https://www.bilibili.com/'}))
+        if spi.get('code') == 0:
+            _cookies['buvid3'] = spi['data']['b_3']
+            _cookies['buvid4'] = spi['data']['b_4']
+            log('已获取 B站 匿名 cookie')
+    except Exception as ex:
+        log(f'获取 B站 cookie 失败（继续尝试无 cookie 请求）：{ex}')
 
 
 def get_mixin_key():
@@ -167,6 +186,7 @@ def main():
     ai_budget = 30
 
     items, errors = [], []
+    refresh_bili_cookie()
     for g in cfg['games']:
         feeds = []  # (来源名, 抓取函数)
         if g.get('bilibili', {}).get('uid'):
@@ -183,6 +203,7 @@ def main():
                         entries = fetch_bilibili_direct(g['bilibili']['uid'], per_src)
                     except Exception as ex1:
                         log(f"{g['name']} / B站直连失败（{ex1}），改用 RSSHub…")
+                        errors.append(f"{g['name']}/B站直连: {ex1}")
                         entries = parse_feed(http_get(f"{rsshub}/bilibili/user/video/{g['bilibili']['uid']}"))[:per_src]
                 else:
                     entries = parse_feed(http_get(kind))[:per_src]
