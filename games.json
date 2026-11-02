@@ -1,0 +1,90 @@
+{
+  "rsshub": "https://rsshub.app",
+  "fetch": { "items_per_source": 10, "excerpt_chars": 300 },
+  "ai": {
+    "enabled": false,
+    "base_url": "https://api.deepseek.com/v1",
+    "api_key_env": "AI_API_KEY",
+    "model": "deepseek-chat",
+    "note": "把 enabled 改成 true，并在 GitHub 仓库 Settings > Secrets 添加 AI_API_KEY 后，摘要会由 AI 生成（每月约几毛钱）。不开启则自动用正文前 300 字做摘要，零成本。"
+  },
+  "games": [
+    {
+      "id": "genshin", "name": "原神", "color": "#4a7ddb",
+      "bilibili": { "uid": "401742377", "name": "原神" },
+      "weibo": { "uid": "", "name": "原神" },
+      "xiaohongshu": { "user_id": "", "name": "原神" },
+      "events": []
+    },
+    {
+      "id": "yemuzhixia", "name": "夜幕之下", "color": "#8b5cf6",
+      "bilibili": { "uid": "3546889188280924", "name": "夜幕之下_代号砰砰" },
+      "weibo": { "uid": "", "name": "夜幕之下" },
+      "xiaohongshu": { "user_id": "", "name": "夜幕之下" },
+      "events": []
+    },
+    {
+      "id": "hsr", "name": "崩坏：星穹铁道", "color": "#d97757",
+      "bilibili": { "uid": "1340190821", "name": "崩坏星穹铁道" },
+      "weibo": { "uid": "", "name": "崩坏星穹铁道" },
+      "xiaohongshu": { "user_id": "", "name": "崩坏星穹铁道" },
+      "events": []
+    },
+    {
+      "id": "zzz", "name": "绝区零", "color": "#e6c34c",
+      "bilibili": { "uid": "1636034895", "name": "绝区零" },
+      "weibo": { "uid": "", "name": "绝区零" },
+      "xiaohongshu": { "user_id": "", "name": "绝区零" },
+      "events": []
+    },
+    {
+      "id": "lifemakeover", "name": "以闪亮之名", "color": "#ec7fb8",
+      "bilibili": { "uid": "", "name": "以闪亮之名" },
+      "weibo": { "uid": "", "name": "以闪亮之名" },
+      "xiaohongshu": { "user_id": "", "name": "以闪亮之名" },
+      "events": []
+    },
+    {
+      "id": "tears", "name": "未定事件簿", "color": "#f2c14e",
+      "bilibili": { "uid": "436175352", "name": "未定事件簿" },
+      "weibo": { "uid": "", "name": "未定事件簿" },
+      "xiaohongshu": { "user_id": "", "name": "未定事件簿" },
+      "events": []
+    },
+    {
+      "id": "deepspace", "name": "恋与深空", "color": "#7dd3fc",
+      "bilibili": { "uid": "699603717", "name": "恋与深空" },
+      "weibo": { "uid": "", "name": "恋与深空" },
+      "xiaohongshu": { "user_id": "", "name": "恋与深空" },
+      "events": []
+    },
+    {
+      "id": "dreamland", "name": "欢迎来到梦乐园", "color": "#6ee7b7",
+      "bilibili": { "uid": "", "name": "欢迎来到梦乐园" },
+      "weibo": { "uid": "", "name": "欢迎来到梦乐园" },
+      "xiaohongshu": { "user_id": "", "name": "欢迎来到梦乐园" },
+      "events": []
+    },
+    {
+      "id": "arknights", "name": "明日方舟", "color": "#ef6b73",
+      "bilibili": { "uid": "161775300", "name": "明日方舟" },
+      "weibo": { "uid": "", "name": "明日方舟" },
+      "xiaohongshu": { "user_id": "", "name": "明日方舟" },
+      "events": []
+    },
+    {
+      "id": "reverse1999", "name": "重返未来：1999", "color": "#a78bfa",
+      "bilibili": { "uid": "1197454103", "name": "重返未来1999" },
+      "weibo": { "uid": "", "name": "重返未来1999" },
+      "xiaohongshu": { "user_id": "", "name": "重返未来1999" },
+      "events": []
+    },
+    {
+      "id": "pathnowhere", "name": "无期迷途", "color": "#94a3b8",
+      "bilibili": { "uid": "647409444", "name": "无期迷途" },
+      "weibo": { "uid": "", "name": "无期迷途" },
+      "xiaohongshu": { "user_id": "", "name": "无期迷途" },
+      "events": []
+    }
+  ]
+}

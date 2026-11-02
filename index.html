@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>我的游戏资讯站</title>
+<style>
+:root{
+  --bg:#fff; --fg:#1a1a1a; --fg2:#666; --fg3:#999; --bd:#e5e5e5;
+  --chip-bg:#f2f2f2; --danger:#d43a3a; --ok:#1f9d57; --warn:#c77d0a;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#141414; --fg:#e8e8e8; --fg2:#a8a8a8; --fg3:#6f6f6f; --bd:#2c2c2c; --chip-bg:#242424; }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  line-height:1.6;font-size:15px}
+.wrap{max-width:860px;margin:0 auto;padding:24px 16px 64px}
+header{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;margin-bottom:16px}
+h1{font-size:20px;font-weight:600;margin:0}
+.meta{font-size:12px;color:var(--fg3)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.chip{border:1px solid var(--bd);background:transparent;color:var(--fg2);border-radius:999px;
+  padding:4px 12px;font-size:13px;cursor:pointer}
+.chip.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.tabs{display:flex;gap:20px;border-bottom:1px solid var(--bd);margin-bottom:16px}
+.tab{border:none;background:none;font-size:14px;color:var(--fg3);padding:6px 2px;cursor:pointer;
+  border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab.on{color:var(--fg);border-bottom-color:var(--fg);font-weight:600}
+.card{border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:10px}
+.row1{display:flex;gap:10px;align-items:flex-start}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;margin-top:8px}
+.title{flex:1;font-size:15px}
+.title a{color:var(--fg);text-decoration:none}
+.title a:hover{text-decoration:underline}
+.badge{font-size:12px;border:1px solid var(--bd);border-radius:6px;padding:1px 7px;color:var(--fg2);white-space:nowrap}
+.st{font-size:12px;padding:2px 9px;border-radius:999px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.st.end-soon{color:var(--danger);background:color-mix(in srgb,var(--danger) 12%,transparent)}
+.st.end{color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,transparent)}
+.st.pre{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)}
+.st.done{color:var(--fg3);background:var(--chip-bg)}
+.sub{display:flex;gap:10px;align-items:center;margin-top:6px;font-size:12px;color:var(--fg3);flex-wrap:wrap}
+.sum{margin-top:8px;font-size:14px;color:var(--fg2);
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.empty{padding:32px;text-align:center;color:var(--fg3);font-size:13px}
+.err{margin-top:24px;font-size:12px;color:var(--fg3)}
+footer{margin-top:32px;font-size:12px;color:var(--fg3);text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>我的游戏资讯站</h1>
+    <span class="meta" id="updated">加载中…</span>
+  </header>
+  <div class="chips" id="chips"></div>
+  <div class="tabs" id="tabs"></div>
+  <div id="list"></div>
+  <div class="err" id="errors"></div>
+  <footer>数据每 2 小时自动更新 · 摘要来自官方账号正文截取</footer>
+</div>
+<script>
+var DATA=null, curG='all', curC='all';
+var CATS=[['all','全部'],['char','角色 / 服装'],['event','活动日历'],['notice','官方公告']];
+
+function esc(s){return (s||'').replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+
+function statusText(ev){
+  var now=Date.now(), end=ev.end?new Date(ev.end.replace(' ','T')).getTime():null;
+  var start=ev.start?new Date(ev.start.replace(' ','T')).getTime():null;
+  if(end){
+    var d=end-now;
+    if(d<=0) return ['已结束','done'];
+    var day=Math.floor(d/864e5), h=Math.floor(d%864e5/36e5);
+    return ['剩余 '+day+' 天 '+h+' 小时', d<3*864e5?'end-soon':'end'];
+  }
+  if(start){
+    var d2=start-now;
+    if(d2<=0) return ['已开始','end'];
+    var day2=Math.floor(d2/864e5), h2=Math.floor(d2%864e5/36e5);
+    return ['还有 '+day2+' 天 '+h2+' 小时开始','pre'];
+  }
+  return [null,null];
+}
+
+function render(){
+  // chips
+  var ch=document.getElementById('chips'); ch.innerHTML='';
+  var all=[['all','全部']].concat(DATA.games.map(function(g){return[g.id,g.name];}));
+  all.forEach(function(p){
+    var b=document.createElement('button'); b.className='chip'+(curG===p[0]?' on':'');
+    b.textContent=p[1]; b.onclick=function(){curG=p[0];render();}; ch.appendChild(b);
+  });
+  // tabs
+  var tb=document.getElementById('tabs'); tb.innerHTML='';
+  CATS.forEach(function(c){
+    var b=document.createElement('button'); b.className='tab'+(curC===c[0]?' on':'');
+    b.textContent=c[1]; b.onclick=function(){curC=c[0];render();}; tb.appendChild(b);
+  });
+  // list
+  var list=document.getElementById('list'); list.innerHTML='';
+  var html='';
+  if(curC==='event'){
+    var evs=DATA.events.filter(function(e){return curG==='all'||e.game===curG;})
+      .sort(function(a,b){return (a.end||a.start)<(b.end||b.start)?-1:1;});
+    evs.forEach(function(ev){
+      var st=statusText(ev);
+      html+='<div class="card"><div class="row1"><span class="dot" style="background:'+ev.color+'"></span>'+
+        '<span class="title"><a href="'+esc(ev.url||'#')+'" target="_blank">'+esc(ev.title)+'</a></span>'+
+        (st[0]?'<span class="st '+st[1]+'">'+st[0]+'</span>':'')+'</div>'+
+        '<div class="sub"><span class="badge">'+esc(ev.game_name)+'</span>'+
+        (ev.start?'<span>开始 '+esc(ev.start)+'</span>':'')+
+        (ev.end?'<span>结束 '+esc(ev.end)+'</span>':'')+
+        (ev.note?'<span>'+esc(ev.note)+'</span>':'')+'</div></div>';
+    });
+    if(!evs.length) html='<div class="empty">暂无活动安排。在 games.json 的对应游戏里添加 events 即可。</div>';
+  } else {
+    var items=DATA.items.filter(function(it){
+      if(curG!=='all'&&it.game!==curG) return false;
+      if(curC==='char') return it.cat==='角色';
+      if(curC==='notice') return it.cat==='公告';
+      return true;
+    });
+    items.forEach(function(it){
+      html+='<div class="card"><div class="row1"><span class="dot" style="background:'+it.color+'"></span>'+
+        '<span class="title"><a href="'+esc(it.link)+'" target="_blank">'+esc(it.title)+'</a></span>'+
+        '<span class="badge">'+esc(it.source)+'</span></div>'+
+        '<div class="sub"><span class="badge">'+esc(it.game_name)+'</span>'+
+        '<span>'+esc(it.cat)+'</span>'+
+        (it.date?'<span>'+esc(it.date.slice(0,16).replace('T',' '))+'</span>':'')+'</div>'+
+        (it.summary?'<div class="sum">'+esc(it.summary)+'</div>':'')+'</div>';
+    });
+    if(!items.length) html='<div class="empty">该分类下暂无内容。等下一次自动更新，或检查 games.json 中的账号 ID。</div>';
+  }
+  list.innerHTML=html;
+  var err=document.getElementById('errors');
+  err.textContent = DATA.errors&&DATA.errors.length ? '部分来源抓取失败：'+DATA.errors.join('；') : '';
+}
+
+fetch('data.json').then(function(r){return r.json();}).then(function(d){
+  DATA=d;
+  document.getElementById('updated').textContent='更新于 '+d.updated_at.slice(0,16).replace('T',' ');
+  render();
+}).catch(function(){
+  document.getElementById('updated').textContent='尚未生成数据';
+  document.getElementById('list').innerHTML='<div class="empty">等待第一次自动更新（Actions 运行后约 1 分钟）。</div>';
+});
+</script>
+</body>
+</html>
