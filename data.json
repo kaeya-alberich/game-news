@@ -1,5 +1,5 @@
 {
- "updated_at": "2026-11-08T13:00:26+08:00",
+ "updated_at": "2026-11-08T20:55:53+08:00",
  "games": [
   {
    "id": "genshin",
@@ -68,15 +68,15 @@
   "崩坏：星穹铁道/B站: HTTP Error 403: Forbidden",
   "绝区零/B站直连: HTTP Error 412: Precondition Failed",
   "绝区零/B站: HTTP Error 403: Forbidden",
-  "未定事件簿/B站直连: HTTP Error 412: Precondition Failed",
+  "未定事件簿/B站直连: B站 API 返回 code=-352: 风控校验失败",
   "未定事件簿/B站: HTTP Error 403: Forbidden",
   "恋与深空/B站直连: HTTP Error 412: Precondition Failed",
   "恋与深空/B站: HTTP Error 403: Forbidden",
-  "明日方舟/B站直连: HTTP Error 412: Precondition Failed",
+  "明日方舟/B站直连: B站 API 返回 code=-403: 访问权限不足",
   "明日方舟/B站: HTTP Error 403: Forbidden",
-  "重返未来：1999/B站直连: HTTP Error 412: Precondition Failed",
+  "重返未来：1999/B站直连: B站 API 返回 code=-352: 风控校验失败",
   "重返未来：1999/B站: HTTP Error 403: Forbidden",
-  "无期迷途/B站直连: HTTP Error 412: Precondition Failed",
+  "无期迷途/B站直连: B站 API 返回 code=-352: 风控校验失败",
   "无期迷途/B站: HTTP Error 403: Forbidden"
  ]
 }
